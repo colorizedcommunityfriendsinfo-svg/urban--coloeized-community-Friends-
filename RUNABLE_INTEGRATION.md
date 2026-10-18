@@ -1,146 +1,88 @@
-# Runable Integration Documentation
+# Runable integration — preparation only
 
-## Overview
-This integration deploys the Urban Colorized Community Friends website and mobile app containers to runable.com automatically on every push to the main branch.
+**Status: NOT DEPLOYED. Automatic production deployment is not implemented.**
 
-## Setup Instructions
+The intended integration builds the Urban Colorized Community Friends web and mobile services, publishes their containers to GitHub Container Registry (GHCR), and deploys them on pushes to `main`. The following dependencies must be resolved first.
 
-### 1. Add Your Runable API Key
-You must add your Runable API key as a GitHub secret:
+## Verified repository state
 
-1. Go to your repository settings: `Settings → Secrets and variables → Actions`
-2. Click **New repository secret**
-3. Name: `RUNABLE_API_KEY`
-4. Value: Your Runable API key
-5. Click **Add secret**
+Inspected October 18, 2026 UTC (October 17 Pacific), at commit `e61a72c36cd94b963d54d549c5e222c987d44538`:
 
-### 2. Directory Structure
-Ensure your repository has the following structure:
-```
-urban--coloeized-community-Friends-/
-├── web/
-│   ├── Dockerfile
-│   └── ... (web app files)
-├── mobile/
-│   ├── Dockerfile
-│   └── ... (mobile app files)
-└── .github/
-    └── workflows/
-        └── runable-deploy.yml
+- The repository contains documentation and a standalone `digital-clock/` demo.
+- There is no `web/` or `mobile/` application, package manifest, lockfile, Dockerfile, or deployment workflow at that commit.
+- The clock demo is plain HTML/CSS/JavaScript. It does not supply the two proposed Node applications or the Wix site backend.
+- Repository access is available. Runable account configuration, credentials, registry access, deployment capability, and application health are unverified.
+
+This change adds a **source-readiness** workflow, not a deployment workflow.
+
+## Run the source check
+
+```bash
+python3 scripts/check-runable-source.py
 ```
 
-### 3. Dockerfiles
-Create `Dockerfile` in both `web/` and `mobile/` directories:
+The check reads files without installing dependencies or executing app scripts. It exits `1` when required source inputs are absent or invalid, and `0` when those inputs are present. A zero exit code does **not** establish build success, API compatibility, or approval to deploy.
 
-**web/Dockerfile:**
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY . .
-RUN npm install
-RUN npm run build
-EXPOSE 80
-CMD ["npm", "start"]
-```
+`.github/workflows/runable-source-readiness.yml` runs this check on pull requests, pushes to `main`, and manual dispatch. It has read-only repository permissions, uses no secrets, and does not build, upload, or deploy anything. Until the app source is supplied, the expected result is **BLOCKED** with the missing paths.
 
-**mobile/Dockerfile:**
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY . .
-RUN npm install
-RUN npm run build:mobile
-EXPOSE 8080
-CMD ["npm", "run", "start:mobile"]
-```
+## Supply and inspect the actual applications
 
-## Workflow Details
+For the proposed npm layout, each service needs:
 
-### Trigger
-- **Event**: Push to `main` branch
-- **Automatic**: Yes, no manual intervention needed
+| Path | Required content |
+| --- | --- |
+| `web/package.json` | Actual dependencies and nonempty `build` / `start` scripts |
+| `web/package-lock.json` | Committed npm lockfile matching the app |
+| `web/Dockerfile` | Container definition designed for that app |
+| `web/.dockerignore` | Exclude credentials, dependency folders, and irrelevant files |
+| `mobile/package.json` | Actual dependencies and `build:mobile` / `start:mobile` scripts |
+| `mobile/package-lock.json` | Committed npm lockfile matching the app |
+| `mobile/Dockerfile` | Container definition for a supported server or web target |
+| `mobile/.dockerignore` | Appropriate build-context exclusions |
 
-### Steps
-1. **Checkout**: Retrieves the latest code
-2. **Docker Setup**: Prepares Docker buildx for multi-platform builds
-3. **Authentication**: Logs into GitHub Container Registry with GitHub token
-4. **Build Web Image**: Builds and pushes the web app container
-5. **Build Mobile Image**: Builds and pushes the mobile app container
-6. **Deploy Web**: Calls Runable API to deploy web container
-7. **Deploy Mobile**: Calls Runable API to deploy mobile container
-8. **Verify**: Confirms deployment initiation
+If the real applications use another package manager or different paths, update the check to match them. Do not invent placeholder scripts to satisfy the check. Establish whether “mobile” means a hosted web app/backend or a native mobile build; an HTTP container is not an iOS or Android app distribution mechanism.
 
-## API Endpoints Called
+Derive Dockerfiles from the actual framework, build output, runtime dependencies, and listener configuration. Use a compatible supported Node LTS version: the original `node:18-alpine` example is EOL according to the [Node release table](https://nodejs.org/en/about/previous-releases). Use reproducible dependency installation, such as `npm ci` with a validated lockfile. Check the actual bind address and port; `EXPOSE` alone does not configure an application's listener. Validate the proposed web port `80` and mobile port `8080` with container health checks before selecting them for deployment.
 
-### Deployment Endpoint
-```
+## Verify Runable's deployment contract
+
+The previously supplied proposal named:
+
+```text
 POST https://api.runable.com/deployments
+Authorization: Bearer <RUNABLE_API_KEY>
 ```
 
-### Request Format
-```json
-{
-  "name": "service-name",
-  "image": "container-image-url",
-  "service_type": "web|mobile",
-  "environment": "production",
-  "port": 80 or 8080
-}
-```
+It proposed `name`, `image`, `service_type`, `environment`, and `port` fields. **No authoritative documentation for this endpoint, authentication scheme, or payload was established during this review. No request with credentials was sent. Do not treat this proposal as a verified API contract.**
 
-### Authentication
-- **Header**: `Authorization: Bearer <RUNABLE_API_KEY>`
-- **Method**: API Key Bearer Token
+Runable's public [project import instructions](https://runable.com/import) describe uploading a ZIP and rebuilding onto its managed stack, including replacement of platform-specific services. That is a different process from pulling two GHCR images. An import has not been requested or performed here.
 
-## Monitoring Deployments
+Obtain the provider's documentation or account-specific API specification for:
 
-After pushing to main:
-1. Go to your repository's **Actions** tab
-2. Click the latest workflow run
-3. Check the deployment logs for status
-4. Visit runable.com dashboard to verify your apps are running
+1. Container deployment availability, endpoint, request schema, supported service types, and create-versus-update semantics.
+2. Credential issuance and least-privilege scopes.
+3. Private GHCR image authentication, architectures, port binding, health checks, and environment/secret configuration.
+4. Response schema, deployment identifier, status polling, terminal failure, rollback, idempotency, rate limits, and timeout behavior.
 
-## Environment Variables
+Then configure `RUNABLE_API_KEY` directly in GitHub Actions secrets if the verified API requires it. Do not paste a key into chat, source, a Docker build argument, or a workflow log. This review did not inspect or change secrets.
 
-The workflow uses the following environment variables:
-- `REGISTRY`: Container registry (ghcr.io - GitHub Container Registry)
-- `IMAGE_NAME_WEB`: Web app image name
-- `IMAGE_NAME_MOBILE`: Mobile app image name
+## Implement production automation after resolving those dependencies
 
-## Customization
+The planned `.github/workflows/runable-deploy.yml` should:
 
-To modify the workflow:
-1. Edit `.github/workflows/runable-deploy.yml`
-2. Adjust ports, service types, or environment names as needed
-3. Commit and push changes
-4. Next deployment will use the updated configuration
+1. Build and test the real applications before publishing images.
+2. Use pinned actions, minimum job permissions, and bounded run time/concurrency.
+3. Authenticate GHCR publication with `GITHUB_TOKEN`; independently configure the provider's private-image pull access. Do not make images public as a workaround.
+4. Publish separate, lowercase image names tagged with the commit SHA and deploy immutable image digests.
+5. Send the verified provider payload with proper JSON encoding, bounded network timeouts, and HTTP error handling without logging credentials or signed URLs.
+6. Avoid blind retries of create requests unless documented idempotency exists.
+7. Poll documented deployment status and check application health. Request acceptance is not proof that either service is running.
+8. Record both deployment results independently and provide recovery if only one service succeeds.
 
-## Troubleshooting
+Acceptance requires successful image builds, authenticated provider pulls, successful deployment status and health checks for both services, failure-path verification, and a rollback exercise. None has been run yet.
 
-### Deployment Fails
-- Verify `RUNABLE_API_KEY` is set correctly in repository secrets
-- Check Docker build logs for errors
-- Ensure Dockerfiles are properly configured
-- Verify Runable API endpoints and format
+## CCF Academy remains a separate Wix release gate
 
-### Images Not Building
-- Ensure `web/Dockerfile` and `mobile/Dockerfile` exist
-- Check for syntax errors in Dockerfiles
-- Verify all dependencies are listed
+This repository has not been established as the existing Wix site's connected source repository. A container deployment does not install a Wix web method or supply its trusted member session. Do not copy a Wix API credential into frontend code or substitute a browser-supplied member ID for authentication.
 
-### Authentication Issues
-- Confirm API key is valid and has deployment permissions
-- Check secret name is exactly `RUNABLE_API_KEY`
-- Verify Bearer token format in curl requests
-
-## Support
-For issues with:
-- **Runable API**: Visit runable.com documentation
-- **GitHub Actions**: See [GitHub Actions Docs](https://docs.github.com/en/actions)
-- **Docker**: See [Docker Documentation](https://docs.docker.com)
-
-## Next Steps
-1. Create/verify Dockerfiles in `web/` and `mobile/` directories
-2. Add `RUNABLE_API_KEY` to repository secrets
-3. Push to main branch to trigger the workflow
-4. Monitor the deployment in the Actions tab
+The Academy workbook remains unavailable until its server-side entitlement implementation, approved replacement file, administrator plan allowlist, publication approval, and live access tests are completed. REVIEW_ONLY material must not be included in container images or public source. This integration does not authorize workbook release, domain migration, pricing changes, enrollment changes, or changes to published Wix courses.
