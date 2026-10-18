@@ -1,0 +1,5 @@
+# Build context must be the repository root; see root .dockerignore.
+node_modules
+dist
+.env*
+.git

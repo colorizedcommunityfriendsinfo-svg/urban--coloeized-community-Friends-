@@ -1,0 +1,11 @@
+**
+!shared/
+!shared/**
+!scripts/
+!scripts/build.mjs
+!web/
+!web/package.json
+!web/package-lock.json
+!mobile/
+!mobile/package.json
+!mobile/package-lock.json

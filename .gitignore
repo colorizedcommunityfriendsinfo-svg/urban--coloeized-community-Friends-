@@ -52,3 +52,9 @@ m4/lt~obsolete.m4
 # can automatically generate from config.status script
 # (which is called by configure script))
 Makefile
+
+# CCF app build output and local-only data
+**/node_modules/
+**/dist/
+.env*
+artifacts/

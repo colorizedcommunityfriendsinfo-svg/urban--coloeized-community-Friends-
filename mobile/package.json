@@ -1,0 +1,15 @@
+{
+  "name": "ccf-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "node ../scripts/build.mjs mobile",
+    "start": "node ../shared/server.mjs mobile",
+    "build:mobile": "npm run build",
+    "start:mobile": "npm start"
+  }
+}
