@@ -2,47 +2,21 @@
 
 **Status: NOT DEPLOYED. Automatic production deployment is not implemented.**
 
-The intended integration builds the Urban Colorized Community Friends web and mobile services, publishes their containers to GitHub Container Registry (GHCR), and deploys them on pushes to `main`. The following dependencies must be resolved first.
+The intended future deployment integration builds the Urban Colorized Community Friends web and mobile services, publishes their containers to GitHub Container Registry (GHCR), and deploys them on pushes to `main`. The following dependencies must be resolved first.
 
-## Verified repository state
+## Implemented source
 
-Inspected October 18, 2026 UTC (October 17 Pacific), at commit `e61a72c36cd94b963d54d549c5e222c987d44538`:
+On October 18, 2026, the user authorized building the applications from scratch. The repository now includes a complete shared community app, separate `web/` and `mobile/` service targets, reproducible npm manifests/lockfiles, Node 24 multi-stage Dockerfiles, a personal planner, saved activity library, and mobile PWA support.
 
-- The repository contains documentation and a standalone `digital-clock/` demo.
-- There is no `web/` or `mobile/` application, package manifest, lockfile, Dockerfile, or deployment workflow at that commit.
-- The clock demo is plain HTML/CSS/JavaScript. It does not supply the two proposed Node applications or the Wix site backend.
-- Repository access is available. Runable account configuration, credentials, registry access, deployment capability, and application health are unverified.
+See [README.md](README.md) for local run, test and container commands. The mobile target is a hosted progressive web app, not a native app-store build. Both services retain Wix as the external store/account system.
 
-This change adds a **source-readiness** workflow, not a deployment workflow.
+## Verification workflow
 
-## Run the source check
+`.github/workflows/runable-source-readiness.yml` checks source inputs, builds both services, tests data and HTTP behavior, runs Chromium at desktop and phone sizes, and builds/runs both containers on pull requests, pushes to `main`, and manual dispatch. It has read-only repository permissions and uses no deployment secrets. It uploads test screenshots only; it does not publish container images or deploy production services.
 
-```bash
-python3 scripts/check-runable-source.py
-```
+Build containers from the **repository root**, using `docker build -f web/Dockerfile .` and `docker build -f mobile/Dockerfile .`. The root `.dockerignore` restricts the build context to required source; do not use `web/` or `mobile/` as the context. Defaults are web port `80` and mobile port `8080`, with `PORT` overrides supported. `/healthz` is the health route.
 
-The check reads files without installing dependencies or executing app scripts. It exits `1` when required source inputs are absent or invalid, and `0` when those inputs are present. A zero exit code does **not** establish build success, API compatibility, or approval to deploy.
-
-`.github/workflows/runable-source-readiness.yml` runs this check on pull requests, pushes to `main`, and manual dispatch. It has read-only repository permissions, uses no secrets, and does not build, upload, or deploy anything. Until the app source is supplied, the expected result is **BLOCKED** with the missing paths.
-
-## Supply and inspect the actual applications
-
-For the proposed npm layout, each service needs:
-
-| Path | Required content |
-| --- | --- |
-| `web/package.json` | Actual dependencies and nonempty `build` / `start` scripts |
-| `web/package-lock.json` | Committed npm lockfile matching the app |
-| `web/Dockerfile` | Container definition designed for that app |
-| `web/.dockerignore` | Exclude credentials, dependency folders, and irrelevant files |
-| `mobile/package.json` | Actual dependencies and `build:mobile` / `start:mobile` scripts |
-| `mobile/package-lock.json` | Committed npm lockfile matching the app |
-| `mobile/Dockerfile` | Container definition for a supported server or web target |
-| `mobile/.dockerignore` | Appropriate build-context exclusions |
-
-If the real applications use another package manager or different paths, update the check to match them. Do not invent placeholder scripts to satisfy the check. Establish whether “mobile” means a hosted web app/backend or a native mobile build; an HTTP container is not an iOS or Android app distribution mechanism.
-
-Derive Dockerfiles from the actual framework, build output, runtime dependencies, and listener configuration. Use a compatible supported Node LTS version: the original `node:18-alpine` example is EOL according to the [Node release table](https://nodejs.org/en/about/previous-releases). Use reproducible dependency installation, such as `npm ci` with a validated lockfile. Check the actual bind address and port; `EXPOSE` alone does not configure an application's listener. Validate the proposed web port `80` and mobile port `8080` with container health checks before selecting them for deployment.
+Local build and data/HTTP results are recorded in the pull request. Use the current PR's GitHub Actions results for container and browser evidence. A green workflow validates these apps; it does not establish Runable API compatibility, Wix entitlements, native-device support or production availability.
 
 ## Verify Runable's deployment contract
 
@@ -70,7 +44,7 @@ Then configure `RUNABLE_API_KEY` directly in GitHub Actions secrets if the verif
 
 The planned `.github/workflows/runable-deploy.yml` should:
 
-1. Build and test the real applications before publishing images.
+1. Require the existing application verification workflow to pass before publishing images.
 2. Use pinned actions, minimum job permissions, and bounded run time/concurrency.
 3. Authenticate GHCR publication with `GITHUB_TOKEN`; independently configure the provider's private-image pull access. Do not make images public as a workaround.
 4. Publish separate, lowercase image names tagged with the commit SHA and deploy immutable image digests.
@@ -79,7 +53,7 @@ The planned `.github/workflows/runable-deploy.yml` should:
 7. Poll documented deployment status and check application health. Request acceptance is not proof that either service is running.
 8. Record both deployment results independently and provide recovery if only one service succeeds.
 
-Acceptance requires successful image builds, authenticated provider pulls, successful deployment status and health checks for both services, failure-path verification, and a rollback exercise. None has been run yet.
+Acceptance requires successful image builds, authenticated provider pulls, successful deployment status and health checks for both services, failure-path verification, and a rollback exercise. Provider deployment, authenticated image pull, production health and rollback tests have not run.
 
 ## CCF Academy remains a separate Wix release gate
 

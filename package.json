@@ -1,0 +1,12 @@
+{
+  "name": "ccf-community-apps",
+  "version": "1.0.0",
+  "private": true,
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "build": "npm --prefix web run build && npm --prefix mobile run build:mobile",
+    "test": "node --test tests/app.test.mjs",
+    "test:browser": "node tests/browser.cjs"
+  },
+  "devDependencies": { "playwright": "1.62.1" }
+}

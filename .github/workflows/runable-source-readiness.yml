@@ -1,4 +1,4 @@
-name: Runable source readiness (no deployment)
+name: CCF app verification (no deployment)
 
 on:
   push:
@@ -10,10 +10,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ccf-verify-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   source-readiness:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -21,3 +25,61 @@ jobs:
           persist-credentials: false
       - name: Check proposed service inputs
         run: python3 scripts/check-runable-source.py
+      - name: Set up Node 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install test tooling and validate service lockfiles
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm --prefix web ci --ignore-scripts --no-audit --no-fund
+          npm --prefix mobile ci --ignore-scripts --no-audit --no-fund
+      - name: Build both applications
+        run: npm run build
+      - name: Test data and HTTP security boundaries
+        run: npm test
+      - name: Install Chromium
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Test desktop, phone and offline behavior
+        run: npm run test:browser
+      - name: Save screenshots for review
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ccf-browser-screenshots
+          path: artifacts/*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+  container-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: web
+            port: 80
+          - service: mobile
+            port: 8080
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build application container
+        run: docker build --pull -f ${{ matrix.service }}/Dockerfile -t ccf-check:${{ matrix.service }} .
+      - name: Check non-root runtime, health and workbook denial
+        env:
+          SERVICE: ${{ matrix.service }}
+          SERVICE_PORT: ${{ matrix.port }}
+        run: |
+          set -euo pipefail
+          docker run -d --name ccf-check --read-only --cap-drop ALL --security-opt no-new-privileges -p 127.0.0.1:18080:"$SERVICE_PORT" "ccf-check:$SERVICE"
+          trap 'docker logs ccf-check; docker rm -f ccf-check' EXIT
+          curl --fail --retry 10 --retry-connrefused --retry-delay 1 --max-time 5 http://127.0.0.1:18080/healthz
+          test "$(docker exec ccf-check id -u)" != 0
+          test "$(curl -s -o /tmp/ccf-denial.json -w '%{http_code}' -X POST 'http://127.0.0.1:18080/api/workbook?fileId=arbitrary&memberId=other')" = 403
+          python3 -c 'import json; assert json.load(open("/tmp/ccf-denial.json"))["releaseEnabled"] is False'
+          curl --fail --max-time 5 http://127.0.0.1:18080/ > /dev/null

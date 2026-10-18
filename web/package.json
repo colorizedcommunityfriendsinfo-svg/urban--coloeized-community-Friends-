@@ -1,0 +1,13 @@
+{
+  "name": "ccf-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "node ../scripts/build.mjs web",
+    "start": "node ../shared/server.mjs web"
+  }
+}
