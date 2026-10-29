@@ -13,8 +13,7 @@ cleanup() {
   local prior=$? result=0
   trap - EXIT
   set +e
-  "$PSQL" -X -v ON_ERROR_STOP=1 -d "$TEST_DB" -v run_id="$GP_TEST_RUN_ID" -c "SELECT guardian_prime_test.cleanup_concurrency_sessions(:'run_id');" || result=1
-  "$PSQL" -X -v ON_ERROR_STOP=1 -d "$TEST_DB" -v run_id="$GP_TEST_RUN_ID" -c "SELECT guardian_prime_test.cleanup_idempotency_concurrency(:'run_id');" || result=1
+  bash "$ROOT/test/bin/cleanup_run.sh" || result=1
   if (( prior == 0 && result != 0 )); then prior=1; fi
   exit "$prior"
 }
@@ -22,5 +21,5 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 test -f "$ROOT/test/sql/ps_sg_006y_idempotency_concurrency.sql" || { echo "Concurrency test missing; fail closed" >&2; exit 66; }
-"$PSQL" -X -v ON_ERROR_STOP=1 -d "$TEST_DB" -v run_id="$GP_TEST_RUN_ID" -c "SELECT guardian_prime_test.cleanup_concurrency_sessions(:'run_id'); SELECT guardian_prime_test.cleanup_idempotency_concurrency(:'run_id');"
+bash "$ROOT/test/bin/cleanup_run.sh"
 "$PG_PROVE" --dbname "$TEST_DB" "$ROOT/test/sql/ps_sg_006y_idempotency_concurrency.sql"

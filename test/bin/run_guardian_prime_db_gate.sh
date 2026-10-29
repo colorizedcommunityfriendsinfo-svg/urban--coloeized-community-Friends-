@@ -17,7 +17,7 @@ done
 [[ -f "$ROOT/test/bin/run_ps_sg_006y_concurrency.sh" ]] || fail CONCURRENCY_WRAPPER_MISSING
 bash "$ROOT/test/bin/run_ps_sg_006y_concurrency.sh" || fail CONCURRENCY
 # Exact-prefix comparison avoids LIKE wildcard collisions.
-counts="$("$PSQL" -X -A -t -v ON_ERROR_STOP=1 -d "$TEST_DB" -v run_id="$GP_TEST_RUN_ID" -c "
+counts="$("$PSQL" -X -A -t -v ON_ERROR_STOP=1 -d "$TEST_DB" -v run_id="$GP_TEST_RUN_ID" <<'SQL'
 SELECT
  (SELECT count(*) FROM guardian_prime.command_idempotency
   WHERE project_id='PROJECT-SHINE-PGTAP-CONCURRENCY'
@@ -29,7 +29,8 @@ SELECT
     AND pid<>pg_backend_pid()
     AND left(application_name,length('gp_pgtap_concurrency_' || :'run_id' || '_'))
        = 'gp_pgtap_concurrency_' || :'run_id' || '_')::text;
-")" || fail CLEANUP_QUERY
+SQL
+)" || fail CLEANUP_QUERY
 [[ "$counts" == "0:0" ]] || fail CLEANUP_REMAINS
 "$PG_PROVE" --dbname "$TEST_DB" "$ROOT/test/sql/060_database_invariants.sql" || fail DATABASE_INVARIANTS
 echo "GUARDIAN_PRIME_DB_GATE=PASSED"

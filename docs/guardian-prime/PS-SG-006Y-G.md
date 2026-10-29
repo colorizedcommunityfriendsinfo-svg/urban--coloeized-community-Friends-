@@ -13,3 +13,24 @@ Run the negative test before the full PS-SG-006Y-F database gate. Missing or fai
 
 ## Follow-up
 Implement the remaining GATE-08 catalog invariants, ordinary idempotency tests, privilege/RLS tests, and full concurrency cleanup gate. Do not report the full gate as passing while these are absent.
+
+## 2026-10-29 isolated provisioning repair
+
+CI now installs PostgreSQL 16, pgTAP/pg_prove and starts a fresh run-owned cluster
+under RUNNER_TEMP. Only a private Unix socket is enabled; local peer authentication
+is required and TCP authentication is reject. No production secrets or endpoints
+are consumed. A database environment marker and exact server data-directory check
+protect the migration entry point. Existing cluster directories are never reused.
+
+The missing-run-ID negative test runs immediately after extension provisioning,
+before application migrations, so its guard is independently exercised even while
+the application migration prerequisite is missing. The full gate still requires
+successful migrations and all existing assertions. Run-scoped cleanup uses psql
+stdin variable quoting, then the always-run finalizer stops only the private
+cluster. Failed provisioning/migration does not invoke nonexistent SQL helpers.
+
+The application schema is still blocked: see migrations/guardian-prime/README.md.
+The recovered conversation source identifies itself as unvalidated historical
+drafts and depends on unresolved trusted-context and role definitions. It has not
+been promoted to an audited migration. Passing infrastructure/guard tests is not
+a passing full safety gate. No production deployment is part of this repair.

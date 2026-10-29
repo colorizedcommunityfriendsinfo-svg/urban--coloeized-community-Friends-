@@ -5,29 +5,42 @@ on:
     branches:
       - main
       - 'dev/guardian-prime-*'
+permissions:
+  contents: read
 jobs:
   db-gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     env:
       TEST_DB: guardian_prime_test
       GP_TEST_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
-      - name: Verify test database provisioning is configured
+        with:
+          persist-credentials: false
+      - name: Provisioning safety guard tests
+        run: python3 test/bin/test_provisioning_safety.py
+      - name: Install PostgreSQL 16 and test dependencies
         run: |
-          test -x scripts/migrate-test-db.sh
-          test -x test/bin/run_guardian_prime_db_gate.sh
-      - name: Provision and migrate isolated test database
-        run: scripts/migrate-test-db.sh
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16 postgresql-client-16 postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl
+      - name: Provision isolated PostgreSQL cluster
+        run: bash scripts/provision-test-db.sh
       - name: Missing run-ID negative test
-        run: bash test/bin/test_gate08_missing_run_id.sh
+        run: |
+          source scripts/lib/isolated-test-db.sh
+          verify_test_cluster
+          bash test/bin/test_gate08_missing_run_id.sh
+      - name: Apply verified Guardian Prime migrations
+        id: migrations
+        run: bash scripts/migrate-test-db.sh
       - name: Required PostgreSQL regression gate
-        run: bash test/bin/run_guardian_prime_db_gate.sh
+        run: |
+          source scripts/lib/isolated-test-db.sh
+          verify_test_cluster
+          bash test/bin/run_guardian_prime_db_gate.sh
       - name: Always-run test cleanup
         if: always()
-        run: |
-          if command -v psql >/dev/null 2>&1; then
-            psql -X -v ON_ERROR_STOP=1 -d "$TEST_DB" \
-              -v run_id="$GP_TEST_RUN_ID" \
-              -c "SELECT guardian_prime_test.cleanup_concurrency_sessions(:'run_id'); SELECT guardian_prime_test.cleanup_idempotency_concurrency(:'run_id');"
-          fi
+        env:
+          GP_MIGRATIONS_APPLIED: ${{ steps.migrations.outcome == 'success' }}
+        run: bash scripts/cleanup-test-db.sh
