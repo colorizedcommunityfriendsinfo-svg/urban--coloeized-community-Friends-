@@ -12,7 +12,7 @@
 -- failed pgTAP assertion as a nonzero result.
 SELECT plan(2);
 SELECT ok(
-  :'GP_TEST_RUN_ID' ~ '^[A-Za-z0-9._-]+$',
+  :'GP_TEST_RUN_ID' ~ '^[A-Za-z0-9._-]{1,40}$',
   'GATE-08 run ID is nonempty and valid'
 );
 SELECT is(

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 : "${GP_TEST_RUN_ID:?GP_TEST_RUN_ID required}"
-[[ "$GP_TEST_RUN_ID" =~ ^[A-Za-z0-9._-]+$ ]] || exit 64
+[[ "$GP_TEST_RUN_ID" =~ ^[A-Za-z0-9._-]{1,40}$ ]] || exit 64
 : "${TEST_DB:?TEST_DB required}"
 PSQL="${PSQL:-psql}"
 [[ "$("$PSQL" -XAt -v ON_ERROR_STOP=1 -d "$TEST_DB" -c "SELECT current_setting('guardian_prime.environment',true)")" == test ]] || exit 64

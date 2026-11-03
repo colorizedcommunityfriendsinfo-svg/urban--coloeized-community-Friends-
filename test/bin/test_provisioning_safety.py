@@ -31,6 +31,27 @@ class ProvisioningSafety(unittest.TestCase):
         self.env['GP_TEST_RUN_ID'] = '../other-run'
         self.assertNotEqual(self.run_script('scripts/cleanup-test-db.sh').returncode, 0)
 
+    def test_maximum_session_safe_run_id_accepted(self):
+        self.env['GP_TEST_RUN_ID'] = 'a' * 40
+        result = self.run_script('scripts/cleanup-test-db.sh')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('no isolated cluster', result.stdout)
+
+    def test_oversized_run_ids_rejected_before_database_access(self):
+        for size in (41, 80):
+            for script in ('scripts/cleanup-test-db.sh', 'test/bin/cleanup_run.sh',
+                           'test/bin/run_ps_sg_006y_concurrency.sh',
+                           'test/bin/run_guardian_prime_db_gate.sh'):
+                with self.subTest(size=size, script=script):
+                    self.env['GP_TEST_RUN_ID'] = 'a' * size
+                    # Any unexpected attempt to connect is made observable.
+                    self.env['TEST_DB'] = 'guardian_prime_test'
+                    self.env['PSQL'] = '/unexpected-database-access'
+                    result = self.run_script(script)
+                    expected = 1 if script.endswith('run_guardian_prime_db_gate.sh') else 64
+                    self.assertEqual(result.returncode, expected, result.stderr)
+                    self.assertNotIn('unexpected-database-access', result.stderr)
+
     def test_foreign_run_marker_rejected(self):
         cluster = Path(self.tmp.name) / 'gp-db-guard-1'
         cluster.mkdir()

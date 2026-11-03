@@ -2,7 +2,8 @@
 # Source only from test tooling. Never accept a caller-provided database URL.
 : "${RUNNER_TEMP:?RUNNER_TEMP required}"
 : "${GP_TEST_RUN_ID:?GP_TEST_RUN_ID required}"
-[[ "$GP_TEST_RUN_ID" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || return 64
+# 21-byte session prefix + at most 40 ASCII bytes + '_a' fits 63 bytes.
+[[ "$GP_TEST_RUN_ID" =~ ^[A-Za-z0-9._-]{1,40}$ ]] || return 64
 [[ "$RUNNER_TEMP" == /* && "$RUNNER_TEMP" != *"'"* && "$RUNNER_TEMP" != *$'\n'* ]] || return 64
 GP_TEST_CLUSTER_ROOT="$RUNNER_TEMP/gp-db-$GP_TEST_RUN_ID"
 export TEST_DB=guardian_prime_test

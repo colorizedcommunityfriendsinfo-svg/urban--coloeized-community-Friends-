@@ -19,7 +19,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Provisioning safety guard tests
-        run: python3 test/bin/test_provisioning_safety.py
+        run: |
+          python3 test/bin/test_provisioning_safety.py
+          python3 test/bin/test_migration_manifest.py
       - name: Install PostgreSQL 16 and test dependencies
         run: |
           sudo apt-get update

@@ -11,12 +11,11 @@ if [[ ! -s "$manifest" ]]; then
   exit 78
 fi
 cd "$ROOT/migrations/guardian-prime"
+ordered_files="$(python3 "$ROOT/scripts/validate-guardian-prime-migrations.py" "$PWD")"
 files=()
-while read -r digest file extra; do
-  [[ "$digest" =~ ^[a-f0-9]{64}$ && "$file" =~ ^[0-9]{3}_[a-z0-9_]+\.sql$ && -z "$extra" && -f "$file" && ! -L "$file" ]] || { echo 'Invalid migration manifest' >&2; exit 78; }
+while IFS= read -r file; do
   files+=( -f "$file" )
-done < "$manifest"
+done <<< "$ordered_files"
 (( ${#files[@]} > 0 )) || exit 78
-sha256sum --check --strict SHA256SUMS
 # A migration error rolls back the complete batch. No partial schema is accepted.
 psql -X -v ON_ERROR_STOP=1 --single-transaction -d "$TEST_DB" "${files[@]}"

@@ -7,7 +7,7 @@ PG_PROVE="${PG_PROVE:-pg_prove}"
 GP_TEST_RUN_ID="${GP_TEST_RUN_ID:-${GITHUB_RUN_ID:-local-$(date +%s)-$$}}"
 export GP_TEST_RUN_ID
 fail(){ echo "GUARDIAN_PRIME_DB_GATE=FAILED"; echo "FAILED_STAGE=$1"; exit 1; }
-[[ "$GP_TEST_RUN_ID" =~ ^[A-Za-z0-9._-]+$ ]] || fail RUN_ID
+[[ "$GP_TEST_RUN_ID" =~ ^[A-Za-z0-9._-]{1,40}$ ]] || fail RUN_ID
 environment="$("$PSQL" -X -A -t -v ON_ERROR_STOP=1 -d "$TEST_DB" -c "SELECT current_setting('guardian_prime.environment',true)")" || fail ENVIRONMENT
 [[ "$environment" == test ]] || fail ENVIRONMENT
 for file in 001_schema_validation.sql 010_idempotency_basic.sql 020_idempotency_rollback.sql 030_idempotency_retrieval.sql 040_privilege_boundaries.sql 050_rls_tenant_isolation.sql; do

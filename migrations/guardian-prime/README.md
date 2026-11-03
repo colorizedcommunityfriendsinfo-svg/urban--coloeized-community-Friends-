@@ -7,6 +7,11 @@ construct application tables from test expectations.
 Before the full gate can run, commit reviewed, ordered SQL files here with a
 `SHA256SUMS` manifest (one lowercase SHA-256, two spaces, and a filename per line).
 Names must be `NNN_lowercase_name.sql`. Manifest order is execution order.
+The three-digit numbers must be unique and strictly increasing. Each nonempty
+SQL file in this directory must appear exactly once. Use lowercase hashes,
+exactly two ASCII spaces, LF line endings, and a final LF. Symlink manifests
+and SQL files are rejected. Offline inventory tests do not execute SQL or
+validate application behavior.
 Checksums detect accidental changes; they do not constitute a security audit.
 Review the SQL and record its source/reviewer before adding the manifest.
 Migrations must support one transaction, have no psql shell/meta-command escapes,
@@ -31,3 +36,10 @@ port PGPORT and database TEST_DB. The cluster has no TCP listener. Peer auth
 identifies the OS runner; the privileged harness must exercise runtime boundaries
 with reviewed roles, not infer safety from a privileged session's successful query.
 Do not enable trust, grant runtime superuser/BYPASSRLS, or relax production controls.
+
+Run IDs must be 1-40 ASCII letters, digits, dots, underscores, or hyphens.
+The 21-byte `gp_pgtap_concurrency_` prefix, run ID, and two-byte `_a`/`_b`
+suffix must fit PostgreSQL's standard 63-byte application_name limit so that
+session cleanup and its assertions compare the complete identity. Future
+session suffixes must preserve this bound. Reviewed cleanup SQL must enforce
+the same run-ID limit; the missing SQL is not supplied by this guard change.
